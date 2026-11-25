@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Behind the Display Lens | Interactive Optical Demo</title>
+  <style>
+    :root {
+      --bg: #0b1118;
+      --panel: #121d27;
+      --panel2: #1a2935;
+      --text: #eef5f8;
+      --muted: #9eb0bc;
+      --cyan: #72d9e8;
+      --gold: #ffd477;
+      --line: #38505f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; color: var(--text); background: var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+    }
+    main { max-width: 1100px; margin: 0 auto; padding: 28px 20px 50px; }
+    header { margin-bottom: 24px; }
+    .eyebrow { color: var(--cyan); letter-spacing: .14em; font-size: .75rem; font-weight: 700; }
+    h1 { margin: 8px 0; font-size: clamp(2rem, 5vw, 3.2rem); }
+    .intro { color: var(--muted); max-width: 720px; line-height: 1.6; }
+    .layout { display: grid; grid-template-columns: 300px 1fr; gap: 18px; }
+    .panel {
+      background: var(--panel); border: 1px solid #263946; border-radius: 18px;
+      padding: 20px;
+    }
+    h2 { font-size: 1.05rem; margin: 0 0 14px; }
+    .choice {
+      display: flex; gap: 10px; align-items: center; padding: 12px;
+      margin: 8px 0; border: 1px solid var(--line); border-radius: 12px;
+      cursor: pointer; color: var(--text); background: transparent;
+      width: 100%; text-align: left; font: inherit;
+    }
+    .choice[aria-pressed="true"] { border-color: var(--cyan); background: #16313a; }
+    .choice .symbol { font-size: 1.35rem; width: 30px; text-align: center; }
+    .hint { color: var(--muted); font-size: .83rem; line-height: 1.5; }
+    button.primary, button.secondary {
+      width: 100%; border: 0; border-radius: 12px; padding: 13px 16px;
+      font: inherit; font-weight: 700; cursor: pointer; margin-top: 12px;
+    }
+    button.primary { background: var(--cyan); color: #07151a; }
+    button.primary:disabled { opacity: .45; cursor: not-allowed; }
+    button.secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+    .stage { display: flex; flex-direction: column; gap: 14px; }
+    .visual {
+      background: radial-gradient(ellipse at 50% 0%, #1c3442, #0e1821 68%);
+      border: 1px solid #263946; border-radius: 16px; padding: 14px;
+    }
+    .visual-label { color: var(--muted); font-size: .72rem; letter-spacing: .12em; margin: 2px 4px 10px; }
+    svg { display: block; width: 100%; height: auto; }
+    .lens { fill: #75b8cb; fill-opacity: .09; stroke: #a6dbe7; stroke-width: 3; }
+    .frame { fill: none; stroke: #c5dce3; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+    .temple { fill: none; stroke: #9bbbc7; stroke-width: 7; stroke-linecap: round; }
+    .mirror { stroke: #d7edf2; stroke-width: 3; stroke-linecap: round; opacity: .72; }
+    .ray { fill: none; stroke: var(--gold); stroke-width: 3.2; stroke-linecap: round; stroke-dasharray: 8 8; opacity: .14; filter: drop-shadow(0 0 2px #ffd47755); }
+    .playing .ray { opacity: .95; animation: travel 1.6s linear infinite; }
+    .ray.r2 { animation-delay: .25s; }
+    .ray.r3 { animation-delay: .5s; }
+    @keyframes travel { to { stroke-dashoffset: -32; } }
+    .source { fill: var(--cyan); stroke: #d7fbff; stroke-width: 1.5; }
+    .source-halo { fill: #72d9e8; opacity: .12; }
+    .playing .source-halo { animation: sourcePulse 1.8s ease-in-out infinite; }
+    @keyframes sourcePulse { 50% { opacity: .28; } }
+    .eye { fill: none; stroke: #d8e8ed; stroke-width: 2.5; }
+    .display-window {
+      min-height: 155px; border-radius: 14px; background: #071017;
+      border: 1px solid #304653; display: grid; place-items: center;
+      padding: 20px; text-align: center; transition: .5s;
+    }
+    .display-window.active { border-color: var(--cyan); box-shadow: 0 0 28px #72d9e822; }
+    .display-content { opacity: 0; transform: translateY(8px); transition: .6s; }
+    .display-window.active .display-content { opacity: 1; transform: translateY(0); }
+    .display-icon { font-size: 2rem; }
+    .display-title { font-size: 1.1rem; font-weight: 700; margin: 6px 0; }
+    .display-copy { color: #b9cbd3; font-size: .9rem; }
+    .status { display: flex; justify-content: space-between; color: var(--muted); font-size: .82rem; }
+    .progress { height: 5px; background: #2a3b46; border-radius: 9px; overflow: hidden; }
+    .progress > div { width: 0%; height: 100%; background: var(--cyan); transition: width .4s; }
+    .note { margin-top: 18px; color: var(--muted); font-size: .82rem; line-height: 1.55; }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+  
+    .layout { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); gap: 20px; align-items: start; }
+    .left-stack { min-width:0; }
+    .animation-column { position: relative; min-width: 0; display: grid; grid-template-columns: minmax(210px,  .72fr) minmax(0, 1.5fr); gap: 14px; align-items: start; }
+    /* Keep the side-view reflection, front view, selected image and progress as ONE connected animation surface. */
+    .stage {
+      min-width: 0; display: flex; flex-direction: column; gap: 0;
+      padding: 16px 18px; border: 1px solid #263946; border-radius: 18px;
+      background: radial-gradient(ellipse at 50% 0%, #1c3442, #0e1821 68%);
+      overflow: hidden;
+    }
+    .stage > .visual {
+      background: transparent; border: 0; border-radius: 0;
+      padding: 10px 2px 16px;
+    }
+    .stage > .visual + .visual { border-top: 1px solid #304653; padding-top: 16px; }
+    .stage > .panel {
+      background: transparent; border: 0; border-top: 1px solid #304653;
+      border-radius: 0; padding: 16px 2px 2px; margin-top: 0;
+    }
+    .stage .display-window { max-width: 100%; }
+    .article-column, .article-lower, .references { min-width: 0; }
+    .article-column { background: var(--panel); border: 1px solid #263946; border-radius: 18px; padding: 22px; line-height: 1.65; }
+    .article-kicker { color: var(--cyan); font-size: .7rem; letter-spacing: .12em; font-weight: 700; }
+    .article-title { font-size: clamp(1.7rem, 3vw, 2.35rem); margin: 7px 0 12px; }
+    .article-lead { color: #d3e2e8; font-size: 1.02rem; }
+    .article-column p, .article-lower p { color: #c2d0d7; }
+    .article-section { background: var(--panel); border: 1px solid #263946; border-radius: 16px; padding: 22px; margin-top: 16px; line-height: 1.65; }
+    .article-section h2 { font-size: 1.2rem; margin: 5px 0 12px; }
+    .section-number { color: var(--cyan); font-size: .75rem; font-weight: 800; letter-spacing: .12em; }
+    .article-lower { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; margin-top: 18px; }
+    .article-lower .article-section { margin-top: 0; margin-bottom: 16px; }
+    .article-note { color: var(--muted) !important; font-size: .88rem; }
+    .closing-line { color: var(--gold) !important; font-weight: 700; }
+    .science-table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+    .science-table th, .science-table td { text-align: left; vertical-align: top; padding: 9px 8px; border-bottom: 1px solid var(--line); }
+    .science-table th { color: var(--cyan); }
+    .table-wrap { overflow-x: auto; }
+    .references { background: var(--panel); border: 1px solid #263946; border-radius: 16px; padding: 22px; margin-top: 0; line-height: 1.65; }
+    .references h2 { font-size: 1.2rem; }
+    .references li { margin: 10px 0; overflow-wrap: anywhere; }
+    .references a { color: var(--cyan); }
+    .fullscreen-button { position: absolute; top: 10px; right: 10px; z-index: 5; width: auto !important; margin: 0 !important; padding: 9px 12px !important; border-radius: 10px !important; background: #071017eF !important; color: var(--text) !important; border: 1px solid #63808d !important; display: inline-flex; align-items: center; gap: 7px; font-size: .82rem !important; }
+    .fullscreen-button:hover { border-color: var(--cyan) !important; }
+    /* Fullscreen belongs to the complete interactive animation: selection controls + every optical view + result/progress. */
+    .animation-column:fullscreen,
+    .animation-column.manual-fullscreen {
+      position: fixed; inset: 0; z-index: 9999;
+      width: 100vw; height: 100vh; max-width: none;
+      overflow: auto; padding: 62px 24px 24px;
+      margin: 0; background: var(--bg);
+      grid-template-columns: minmax(230px, 0.62fr) minmax(0, 1.7fr);
+      gap: 18px; align-content: start; align-items: start;
+    }
+    .animation-column:fullscreen .stage,
+    .animation-column.manual-fullscreen .stage {
+      min-width: 0; min-height: 0; overflow: visible;
+    }
+    .animation-column:fullscreen .stage,
+    .animation-column.manual-fullscreen .stage {
+      padding: 18px 22px; border-radius: 18px;
+    }
+    .animation-column:fullscreen .stage > .visual,
+    .animation-column.manual-fullscreen .stage > .visual { padding-left: 2px; padding-right: 2px; }
+    .animation-column:fullscreen svg,
+    .animation-column.manual-fullscreen svg { max-height: none; }
+    .animation-column:fullscreen .fullscreen-button,
+    .animation-column.manual-fullscreen .fullscreen-button {
+      position: fixed; top: 12px; right: 16px;
+    }
+    @media (max-width: 1050px) { .layout { grid-template-columns: 1fr; } }
+    @media (max-width: 760px) {
+      .animation-column { grid-template-columns: 1fr; }
+      .article-lower { grid-template-columns: 1fr; }
+      .animation-column:fullscreen,
+      .animation-column.manual-fullscreen { grid-template-columns: 1fr; padding: 58px 12px 20px; }
+      .animation-column:fullscreen svg,
+      .animation-column.manual-fullscreen svg { max-height: none; }
+      .animation-column:fullscreen .stage,
+      .animation-column.manual-fullscreen .stage { padding: 12px; }
+    }
+
+
+    .left-stack { min-width:0; display:grid; gap:18px; align-content:start; }
+    .product-reference { margin:0; padding:18px; }
+    .device-diagram-wrap { width:100%; overflow:hidden; border:1px solid #304653; border-radius:14px; background:radial-gradient(ellipse at 50% 0%,#172b37,#0a141d 75%); }
+    .device-diagram { display:block; width:100%; height:auto; }
+    .product-legend { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:14px; }
+    .product-fact { min-width:0; }
+    .product-fact p { font-size:.84rem; }
+    @media (max-width:760px) { .product-legend { grid-template-columns:1fr; } }
+
+    .product-reference {
+      margin: 0 0 0; padding: 22px;
+      border: 1px solid #263946; border-radius: 18px;
+      background: linear-gradient(145deg, #14232e, #0e1821 72%);
+    }
+    .product-reference-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:end; gap:10px; margin-bottom:16px; }
+    .product-reference-head h2 { margin:5px 0 0; font-size:clamp(1.25rem,2.5vw,1.7rem); }
+    .product-reference-grid { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(230px,.85fr); gap:20px; align-items:center; }
+    .product-visual { position:relative; min-width:0; overflow:hidden; border:1px solid #304653; border-radius:14px; background:#0b141d; }
+    .product-visual img { display:block; width:100%; height:auto; }
+    .product-callout { position:absolute; width:clamp(22px,3vw,34px); height:clamp(22px,3vw,34px); border:2px solid #07151a; border-radius:50%; background:var(--cyan); color:#07151a; font-weight:800; display:grid; place-items:center; box-shadow:0 0 0 2px var(--cyan), 0 0 18px #72d9e888; transform:translate(-50%,-50%); }
+    .product-callout.display-point { left:39.5%; top:47%; }
+    .product-callout.camera-point { left:32.7%; top:38.2%; }
+    .product-legend { display:grid; gap:12px; }
+    .product-fact { padding:12px 13px; border:1px solid #304653; border-radius:12px; background:#0c1720; }
+    .product-fact strong { display:block; color:var(--cyan); margin-bottom:4px; }
+    .product-fact p { margin:0; color:#c2d0d7; font-size:.9rem; line-height:1.5; }
+    .product-disclaimer { color:var(--muted); font-size:.82rem; line-height:1.55; margin:14px 0 0; }
+    .product-source-links { margin-top:10px; font-size:.83rem; }
+    .product-source-links a { color:var(--cyan); }
+    @media (max-width:760px) { .product-reference-grid { grid-template-columns:1fr; } .product-legend { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <header class="page-header">
+    <div class="eyebrow">INTERACTIVE OPTICS EXPLORER</div>
+    <h1>Behind the Display Lens</h1>
+    <p class="intro">How smart glasses turn light into information — explore the optical journey and discover how image-bearing light travels through a transparent lens to the eye.</p>
+  </header>
+  <section class="layout">
+    <div class="left-stack">
+    <div class="animation-column" id="animationArea">
+    <button class="secondary fullscreen-button" id="fullscreenToggle" type="button" aria-label="Make animation fullscreen" title="Make animation fullscreen">
+      <span aria-hidden="true" id="fullscreenIcon">⛶</span><span id="fullscreenLabel">Fullscreen</span>
+    </button>
+    <aside class="panel">
+      <h2>1. Choose your display content</h2>
+      <button class="choice" data-choice="navigation" aria-pressed="true">
+        <span class="symbol">↗</span><span><strong>Navigation</strong><br><span class="hint">A turn-by-turn direction</span></span>
+      </button>
+      <button class="choice" data-choice="message" aria-pressed="false">
+        <span class="symbol">✉</span><span><strong>Message</strong><br><span class="hint">A short notification</span></span>
+      </button>
+      <button class="choice" data-choice="weather" aria-pressed="false">
+        <span class="symbol">☁</span><span><strong>Weather</strong><br><span class="hint">Current conditions</span></span>
+      </button>
+      <h2 style="margin-top:22px">2. Start the process</h2>
+      <p class="hint">In this prototype, clicking the button represents a selection gesture detected by a simulated wristband. It does not read real muscle signals.</p>
+      <button class="primary" id="start">Send selection</button>
+      <button class="secondary" id="reset">Reset</button>
+    </aside>
+<div class="stage">
+      <section class="visual" id="opticalScene">
+        <div class="visual-label">A — SIDE VIEW · WAVEGUIDE REFLECTIONS AND EYE POSITION</div>
+        <svg viewBox="0 0 720 320" role="img" aria-label="Side view of smart glasses worn in front of an eye. A compact projector mounted on the temple arm beside the hinge injects image light into the lens waveguide. The light reflects internally along the lens and exits toward the eye.">
+          <defs>
+            <linearGradient id="waveguideGlass" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0" stop-color="#72d9e8" stop-opacity=".10"/>
+              <stop offset=".48" stop-color="#a6e8f0" stop-opacity=".24"/>
+              <stop offset="1" stop-color="#72d9e8" stop-opacity=".10"/>
+            </linearGradient>
+            <linearGradient id="lensEdge" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0" stop-color="#d8f8fc" stop-opacity=".8"/>
+              <stop offset="1" stop-color="#72d9e8" stop-opacity=".15"/>
+            </linearGradient>
+            <radialGradient id="irisSide">
+              <stop offset="0" stop-color="#14232c"/>
+              <stop offset=".55" stop-color="#4f91a4"/>
+              <stop offset="1" stop-color="#b8dce4"/>
+            </radialGradient>
+            <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <marker id="rayArrow" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto">
+              <path d="M0 0 L6 3 L0 6" fill="none" stroke="#ffd477" stroke-width="1.2"/>
+            </marker>
+          </defs>
+
+          <!-- Side-on glasses frame, hinge and temple arm -->
+          <path d="M286 63 Q350 48 420 63 L604 78 Q620 80 632 91" fill="none" stroke="#c5dce3" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity=".78"/>
+          <path d="M286 63 Q350 48 420 63 L604 78" fill="none" stroke="#eefaff" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+          <path d="M290 66 Q278 145 290 229 Q294 245 309 247 L326 247 Q337 244 339 229 L339 68" fill="url(#waveguideGlass)" stroke="#bceaf1" stroke-width="3"/>
+          <path d="M297 75 Q288 146 298 222" fill="none" stroke="url(#lensEdge)" stroke-width="4" opacity=".85"/>
+          <path d="M330 75 Q338 146 330 222" fill="none" stroke="#72d9e8" stroke-width="1.5" opacity=".5"/>
+          <text x="314" y="270" fill="#ccebf0" font-size="12" text-anchor="middle">Lens / waveguide</text>
+          <path d="M314 250 L314 258" stroke="#a9c2ce" stroke-width="1"/>
+
+          <!-- Compact micro-projector mounted on the temple arm, just behind the hinge -->
+          <rect x="344" y="51" width="38" height="23" rx="7" fill="#173d4a" stroke="#72d9e8" stroke-width="2"/>
+          <circle cx="351" cy="62.5" r="5.5" class="source" filter="url(#softGlow)"/>
+          <circle cx="351" cy="62.5" r="14" class="source-halo"/>
+          <path d="M363 51 L401 30 L510 30" stroke="#a9c2ce" stroke-width="1" fill="none"/>
+          <text x="514" y="34" fill="#ccebf0" font-size="11">Micro-projector on temple</text>
+
+          <!-- Image light couples from the temple-mounted projector into the lens edge, then reflects internally -->
+          <path class="ray" d="M351 69 L337 82 L301 88 L328 108 L301 130 L328 152 L301 174 L328 196 L301 218 L328 235" marker-end="url(#rayArrow)"/>
+          <path class="ray r2" d="M351 69 L337 82 L301 88 L328 108 L301 130 L328 152 L301 174 L328 196 L301 218 L328 235" opacity=".42"/>
+          <!-- restrained bounce markers on the guide surfaces -->
+          <g fill="#ffd477" opacity=".9">
+            <circle cx="301" cy="88" r="3"/><circle cx="328" cy="108" r="3"/>
+            <circle cx="301" cy="130" r="3"/><circle cx="328" cy="152" r="3"/>
+            <circle cx="301" cy="174" r="3"/><circle cx="328" cy="196" r="3"/>
+            <circle cx="301" cy="218" r="3"/>
+          </g>
+          <path d="M355 147 L355 147" stroke="#ffd477" stroke-width="1"/>
+          <path d="M329 235 L374 235 L405 195 L438 158" class="ray r3" marker-end="url(#rayArrow)"/>
+          <path d="M438 158 L468 137" fill="none" stroke="#ffd477" stroke-width="2.2" stroke-dasharray="4 6" opacity=".85" marker-end="url(#rayArrow)"/>
+          <path d="M438 158 L470 158" fill="none" stroke="#ffd477" stroke-width="1.8" stroke-dasharray="3 6" opacity=".48"/>
+
+          <!-- Eye in side profile, immediately behind the lens; cornea faces the lens -->
+          <path d="M454 159 Q487 112 544 130 Q566 137 577 159 Q559 181 527 188 Q483 197 454 159Z" fill="#d8e8ed" fill-opacity=".12" stroke="#d8e8ed" stroke-width="3"/>
+          <path d="M454 159 Q467 136 480 132 Q469 157 480 184 Q465 179 454 159Z" fill="#b8dce4" fill-opacity=".22" stroke="#b8dce4" stroke-width="1.5"/>
+          <ellipse cx="493" cy="159" rx="17" ry="25" fill="url(#irisSide)" stroke="#d8e8ed" stroke-width="1.2"/>
+          <ellipse cx="488" cy="159" rx="7" ry="13" fill="#071017"/>
+          <circle cx="498" cy="149" r="4" fill="#ffffff" opacity=".8"/>
+          <path d="M454 159 Q447 151 450 142" fill="none" stroke="#d8e8ed" stroke-width="2" stroke-linecap="round"/>
+          <text x="520" y="218" fill="#ccebf0" font-size="12" text-anchor="middle">Eye (behind lens)</text>
+          <path d="M515 194 L515 204" stroke="#a9c2ce" stroke-width="1"/>
+
+          <!-- Labels explain the stages without crowding the light path -->
+          <path d="M365 83 L404 57 L493 57" stroke="#a9c2ce" stroke-width="1" fill="none"/>
+          <text x="497" y="53" fill="#ccebf0" font-size="11">Internal reflections</text>
+          <path d="M438 158 L438 252 L510 252" stroke="#a9c2ce" stroke-width="1" fill="none"/>
+          <text x="514" y="256" fill="#ccebf0" font-size="11">Light exits toward pupil</text>
+          <text x="360" y="302" fill="#829aa7" font-size="10" text-anchor="middle">Conceptual side view · repeated reflections are shown inside the waveguide, not on the eye</text>
+        </svg>
+      </section>
+
+      <section class="visual">
+        <div class="visual-label">B — FRONT VIEW · WHAT THE USER SEES</div>
+        <svg viewBox="0 0 720 190" role="img" aria-label="Front view of smart glasses with two lenses, bridge, temples, a small light-source module at the right hinge and a limited display area">
+          <!-- temples behind the frame -->
+          <path d="M92 53 L28 34 Q18 31 13 38 M628 53 L690 34 Q700 31 706 38" class="temple"/>
+          <!-- two distinct optical lenses -->
+          <path d="M75 53 Q80 28 112 27 L292 27 Q321 29 326 55 L315 132 Q310 151 284 151 L116 151 Q88 150 82 130 Z" class="lens"/>
+          <path d="M394 55 Q399 29 428 27 L608 27 Q640 28 645 53 L638 130 Q632 150 604 151 L436 151 Q410 151 405 132 Z" class="lens"/>
+          <!-- frame rims and bridge -->
+          <path d="M75 53 Q80 28 112 27 L292 27 Q321 29 326 55 L315 132 Q310 151 284 151 L116 151 Q88 150 82 130 Z" class="frame"/>
+          <path d="M394 55 Q399 29 428 27 L608 27 Q640 28 645 53 L638 130 Q632 150 604 151 L436 151 Q410 151 405 132 Z" class="frame"/>
+          <path d="M326 58 Q360 38 394 58" class="frame"/>
+          <!-- discreet projector / light source at hinge -->
+          <rect x="622" y="43" width="29" height="24" rx="7" fill="#173d4a" stroke="#72d9e8" stroke-width="2"/>
+          <circle cx="636" cy="55" r="5" class="source"/>
+          <path d="M636 40 L660 17 L704 17" stroke="#a9c2ce" stroke-width="1" fill="none"/>
+          <text x="704" y="13" fill="#a9c2ce" font-size="10" text-anchor="end">Light source</text>
+          <!-- small, localized HUD region -->
+          <rect x="478" y="76" width="116" height="53" rx="7" fill="#071017" fill-opacity=".72" stroke="#72d9e8" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <text x="536" y="70" fill="#a9c2ce" font-size="10" text-anchor="middle">Display area</text>
+          <g id="frontContent" opacity="0">
+            <text id="frontIcon" x="536" y="98" fill="#ffd477" font-size="17" text-anchor="middle">↗</text>
+            <text id="frontText" x="536" y="116" fill="#eef5f8" font-size="10" text-anchor="middle">Turn right</text>
+          </g>
+          <text x="360" y="181" fill="#a9c2ce" font-size="11" text-anchor="middle">Illustrative smart-glasses front view · compact information overlay</text>
+        </svg>
+        <div class="display-window" id="display">
+          <div class="display-content">
+            <div class="display-icon" id="displayIcon">↗</div>
+            <div class="display-title" id="displayTitle">Navigation</div>
+            <div class="display-copy" id="displayCopy">Turn right in 300 metres</div>
+          </div>
+          <div id="placeholder" class="hint">Your selected content will appear here after the optical sequence.</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="status"><span id="stepName">Ready</span><span id="stepCount">Step 0 / 4</span></div>
+        <div class="progress" style="margin:10px 0 12px"><div id="progressBar"></div></div>
+        <p class="hint" id="explanation">Choose an item and send the selection to begin.</p>
+      </section>
+    </div>
+    </div>
+
+      <section class="product-reference" aria-labelledby="productReferenceTitle">
+    <div class="product-reference-head">
+      <div>
+        <div class="article-kicker">DEVICE-INSPIRED TECHNICAL ILLUSTRATION</div>
+        <h2 id="productReferenceTitle">Inside the Meta Ray-Ban Display</h2>
+      </div>
+      <span class="hint">Schematic · not to scale</span>
+    </div>
+    <div class="device-diagram-wrap">
+      <svg class="device-diagram" viewBox="0 0 900 590" role="img" aria-labelledby="deviceTitle deviceDesc">
+        <title id="deviceTitle">Schematic of the Meta Ray-Ban Display optical system</title>
+        <desc id="deviceDesc">A stylised pair of smart glasses with a cutaway of the wearer's right lens and right temple. The optical engine is inside the right temple near the hinge. Light enters the top outer corner of the right lens, travels through vertical pupil-expander structures and partially reflective mirrors, and is directed toward the eye.</desc>
+        <defs>
+          <linearGradient id="frameMetal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#536777"/><stop offset=".28" stop-color="#18242e"/><stop offset=".58" stop-color="#394b58"/><stop offset="1" stop-color="#101922"/></linearGradient>
+          <linearGradient id="lensFill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9cecff" stop-opacity=".22"/><stop offset=".55" stop-color="#4e8da6" stop-opacity=".10"/><stop offset="1" stop-color="#b5efff" stop-opacity=".18"/></linearGradient>
+          <linearGradient id="templeFill" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3b4e5c"/><stop offset=".5" stop-color="#17232d"/><stop offset="1" stop-color="#536776"/></linearGradient>
+          <filter id="cyanGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <marker id="arrowCyan" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6" fill="none" stroke="#77e5f4" stroke-width="1.2"/></marker>
+        </defs>
+        <rect x="12" y="12" width="876" height="566" rx="18" fill="#0b151e" stroke="#2c4655"/>
+        <text x="34" y="46" fill="#8ea8b6" font-size="12" letter-spacing="2">FRONT VIEW · WEARER'S RIGHT LENS AND TEMPLE</text>
+
+        <!-- Stylised front frame; right lens is the highlighted lens on the viewer's left. -->
+        <g stroke="url(#frameMetal)" stroke-width="13" stroke-linejoin="round" fill="none">
+          <path d="M88 154 Q92 122 128 119 L337 112 Q370 112 378 146 L366 319 Q361 359 326 363 L129 356 Q92 353 89 320 Z"/>
+          <path d="M406 145 Q414 113 448 113 L657 119 Q692 121 696 155 L692 319 Q689 354 653 357 L454 363 Q418 361 412 327 Z"/>
+          <path d="M367 151 Q392 136 415 151"/>
+        </g>
+        <path d="M101 158 Q106 133 135 132 L333 126 Q357 126 363 151 L352 316 Q349 343 323 347 L135 341 Q107 338 103 315 Z" fill="url(#lensFill)" stroke="#9adce9" stroke-opacity=".65" stroke-width="2"/>
+        <path d="M420 151 Q426 127 452 127 L650 133 Q678 135 682 158 L678 315 Q676 340 650 344 L457 349 Q429 347 425 323 Z" fill="#9bc8d8" fill-opacity=".07" stroke="#8daab8" stroke-opacity=".5" stroke-width="2"/>
+        <path d="M91 147 Q66 139 43 151 L20 169 Q12 176 19 188 L31 198 Q54 178 91 184" fill="none" stroke="url(#templeFill)" stroke-width="20" stroke-linecap="round"/>
+        <path d="M91 147 Q66 139 43 151 L20 169" fill="none" stroke="#6c8593" stroke-opacity=".55" stroke-width="2"/>
+        <text x="224" y="388" text-anchor="middle" fill="#b8cbd4" font-size="13">WEARER'S RIGHT LENS</text>
+        <text x="556" y="388" text-anchor="middle" fill="#7f96a3" font-size="12">OTHER LENS · NOT THE DISPLAY LENS</text>
+
+        <!-- Enlarged optical cutaway connected to right lens and temple. -->
+        <path d="M350 133 C385 70 470 67 535 92 L747 130" fill="none" stroke="#4c7182" stroke-width="1.5" stroke-dasharray="5 6"/>
+        <rect x="74" y="414" width="752" height="132" rx="13" fill="#101f2a" stroke="#345362"/>
+        <text x="94" y="438" fill="#8ea8b6" font-size="11" letter-spacing="1.5">MAGNIFIED OPTICAL ROUTE · SIMPLIFIED, NOT TO SCALE</text>
+        <!-- Temple optical engine -->
+        <rect x="103" y="463" width="152" height="54" rx="10" fill="#1d303d" stroke="#72d9e8" stroke-width="1.5"/>
+        <rect x="116" y="474" width="28" height="30" rx="4" fill="#263e4d" stroke="#f0b96a"/>
+        <circle cx="130" cy="482" r="4" fill="#ff6d6d"/><circle cx="130" cy="490" r="4" fill="#7dffb0"/><circle cx="130" cy="498" r="4" fill="#72baff"/>
+        <rect x="154" y="474" width="37" height="30" rx="4" fill="#294455" stroke="#8ce8f1"/>
+        <text x="172" y="493" text-anchor="middle" fill="#e7f8fb" font-size="9">LCoS</text>
+        <path d="M195 489 L242 489" stroke="#77e5f4" stroke-width="3" marker-end="url(#arrowCyan)" filter="url(#cyanGlow)"/>
+        <text x="179" y="535" text-anchor="middle" fill="#bcd0d8" font-size="10">RGB LEDs + LCoS projector</text>
+        <!-- turning mirror / input -->
+        <path d="M263 465 L277 513" stroke="#f0c878" stroke-width="5" stroke-linecap="round"/>
+        <path d="M280 489 L328 489" stroke="#77e5f4" stroke-width="3" marker-end="url(#arrowCyan)"/>
+        <text x="272" y="535" text-anchor="middle" fill="#bcd0d8" font-size="10">Turning mirror</text>
+        <!-- waveguide with vertical expander and horizontal mirrors -->
+        <rect x="333" y="463" width="356" height="54" rx="8" fill="url(#lensFill)" stroke="#8fe4ef" stroke-width="1.5"/>
+        <g stroke="#f5d58c" stroke-width="3" opacity=".9">
+          <path d="M355 471 V509 M364 471 V509 M373 471 V509 M382 471 V509"/>
+        </g>
+        <g stroke="#8ee6f1" stroke-width="2" opacity=".85">
+          <path d="M393 478 L660 478 M393 488 L660 488 M393 498 L660 498"/>
+        </g>
+        <path d="M280 489 L352 489 L359 475 L367 503 L375 475 L383 503 L391 489 L650 489" fill="none" stroke="#77e5f4" stroke-width="3" marker-end="url(#arrowCyan)" filter="url(#cyanGlow)"/>
+        <text x="514" y="535" text-anchor="middle" fill="#bcd0d8" font-size="10">Geometric reflective waveguide in right lens</text>
+        <!-- output to eye -->
+        <path d="M663 489 L722 489" stroke="#77e5f4" stroke-width="3" marker-end="url(#arrowCyan)" filter="url(#cyanGlow)"/>
+        <path d="M741 471 Q763 489 741 507 Q719 489 741 471 Z" fill="#d8f6ff" fill-opacity=".2" stroke="#a9eaf4" stroke-width="1.5"/>
+        <circle cx="741" cy="489" r="6" fill="#a9eaf4"/>
+        <text x="741" y="535" text-anchor="middle" fill="#bcd0d8" font-size="10">Eye</text>
+
+        <!-- numbered markers and leader lines on the actual glasses -->
+        <g font-family="Inter, Arial, sans-serif" font-weight="700" text-anchor="middle">
+          <g><circle cx="54" cy="170" r="15" fill="#72d9e8" stroke="#07151a" stroke-width="3"/><text x="54" y="175" fill="#07151a" font-size="13">1</text></g>
+          <g><circle cx="119" cy="145" r="15" fill="#72d9e8" stroke="#07151a" stroke-width="3"/><text x="119" y="150" fill="#07151a" font-size="13">2</text></g>
+          <g><circle cx="111" cy="235" r="15" fill="#72d9e8" stroke="#07151a" stroke-width="3"/><text x="111" y="240" fill="#07151a" font-size="13">3</text></g>
+          <g><circle cx="235" cy="250" r="15" fill="#72d9e8" stroke="#07151a" stroke-width="3"/><text x="235" y="255" fill="#07151a" font-size="13">4</text></g>
+          <g><circle cx="300" cy="317" r="15" fill="#72d9e8" stroke="#07151a" stroke-width="3"/><text x="300" y="322" fill="#07151a" font-size="13">5</text></g>
+        </g>
+        <path d="M54 185 L54 414 M119 160 L277 414 M111 250 L111 414 M235 265 L235 414 M300 332 L300 414" stroke="#6e9aaa" stroke-width="1" stroke-dasharray="3 5" opacity=".7"/>
+      </svg>
+    </div>
+    <div class="product-legend">
+      <div class="product-fact"><strong>1 · Right temple: optical engine</strong><p>The compact projector sits inside the wearer's right arm near the hinge. The teardown identifies RGB LED illumination and an LCoS microdisplay in the projection system.</p></div>
+      <div class="product-fact"><strong>2 · Upper outer corner: light-entry mirror</strong><p>A turning mirror at the upper temple-side corner sends projector light down into the waveguide's vertical pupil-expander structures.</p></div>
+      <div class="product-fact"><strong>3 · Temple-side edge: vertical pupil expander</strong><p>Closely spaced reflective structures along the edge of the right lens replicate and spread the guided light vertically.</p></div>
+      <div class="product-fact"><strong>4 · Across the lens: partially reflective mirrors</strong><p>These internal mirrors distribute portions of the guided light across the lens and redirect it toward the eye. This is a geometric reflective waveguide, not a diffraction-grating illustration.</p></div>
+      <div class="product-fact"><strong>5 · Viewing region: image reaches the eye</strong><p>The image is delivered into the wearer's eye box; the visible display is positioned in the lower-right area of the wearer's field of view.</p></div>
+    </div>
+    <p class="product-disclaimer">This is a simplified educational schematic based on teardown reporting, not an exact manufacturing drawing or a claim that every internal dimension is shown. The optical path and component placement are representative of the Meta Ray-Ban Display system.</p>
+    <div class="product-source-links">Technical teardown: <a href="https://www.ifixit.com/News/113543/theres-groundbreaking-waveguide-tech-inside-metas-800-ar-glasses" target="_blank" rel="noopener">iFixit teardown</a> · Product specifications: <a href="https://www.meta.com/gb/ai-glasses/meta-ray-ban-display-glasses-and-neural-band-black/" target="_blank" rel="noopener">Meta Ray-Ban Display</a> · <a href="https://www.ray-ban.com/usa/electronics/HX000001meta%20ray-ban%20display-black/815820026709" target="_blank" rel="noopener">Ray-Ban specifications</a></div>
+  </section>
+    </div>
+
+    <article class="article-column">
+      <div class="article-kicker">HOW SMART GLASSES TURN LIGHT INTO INFORMATION</div>
+      <h2 class="article-title">Light Behind the Lens</h2>
+      <p class="article-lead">A tiny light source, a transparent lens, and a carefully designed optical path. These are some of the key elements that allow smart glasses to place digital information in front of your eyes without completely blocking the world around you.</p>
+      <p>Unlike a conventional screen, an optical see-through augmented reality (AR) display does not simply show an image on a surface. It uses a combination of light generation, optical guidance, and controlled redirection to deliver an image to the viewer's eye.</p>
+      <p>But how does light travel from the side of a pair of glasses to the eye?</p>
+      <div class="article-section">
+        <span class="section-number">01</span>
+        <h2>The Light Source: Where the Image Begins</h2>
+        <p>The process begins inside the temple of the glasses, near the hinge connecting the frame to the lens.</p>
+        <p>A compact display system, commonly called a <strong>light engine</strong>, generates the light that carries the digital image. Depending on the device architecture, this system may use technologies such as micro-OLED, micro-LED, LCoS, or laser-based projection.</p>
+        <p>The light engine produces the image, while optical components help shape and direct the emitted light toward the lens.</p>
+        <p>This distinction is important: the digital information itself does not travel through the glass. Instead, the light carrying the image is guided through the optical system.</p>
+        <p>The goal is to keep the projection system small enough to fit into an everyday glasses frame while delivering sufficient brightness and image quality.</p>
+      </div>
+      <div class="article-section">
+        <span class="section-number">02</span>
+        <h2>Entering the Waveguide: A Path Inside the Lens</h2>
+        <p>Once the image light leaves the projection optics, it reaches an optical element called the <strong>in-coupler</strong>.</p>
+        <p>The in-coupler directs the incoming light into a thin, transparent optical layer known as a waveguide.</p>
+        <p>Waveguides can be made from carefully selected glass or optical polymers. Their refractive properties allow light to remain guided within the material under suitable conditions.</p>
+        <p>This is the beginning of the optical journey through the lens.</p>
+      </div>
+    </article>
+
+  </section>
+
+  <section class="article-lower">
+    <div class="article-section">
+      <span class="section-number">03</span>
+      <h2>Total Internal Reflection: Keeping Light on Track</h2>
+      <p>One of the most important physical principles behind many AR waveguide displays is <strong>Total Internal Reflection (TIR)</strong>.</p>
+      <p>When light travels inside a material with a higher refractive index and reaches a boundary with a lower refractive index at an angle greater than the critical angle, it can be reflected back into the original material rather than passing through the boundary.</p>
+      <p>This process allows light to travel along a thin waveguide through repeated internal reflections.</p>
+      <p>Instead of requiring a bulky projector directly in front of the eye, the waveguide can guide image-bearing light across the lens while preserving a relatively transparent appearance.</p>
+      <p>The light is not simply bouncing randomly. Its direction is determined by the geometry, refractive properties, and optical coupling structures of the system.</p>
+    </div>
+    <div class="article-section">
+      <span class="section-number">04</span>
+      <h2>The Out-Coupler: Directing Light Toward the Eye</h2>
+      <p>After travelling through the waveguide, the image light reaches another optical structure called the <strong>out-coupler</strong>.</p>
+      <p>Its purpose is to redirect guided light out of the waveguide and toward the viewer's eye.</p>
+      <p>Depending on the optical architecture, this may involve partially reflective surfaces, diffraction gratings, or other specially designed optical structures.</p>
+      <p>Some waveguide systems also replicate the light beam at multiple locations. This technique, known as <strong>exit pupil expansion</strong>, helps create a larger viewing region, called the eyebox.</p>
+      <p>The eyebox is the area within which the viewer can position their eye and still see the projected image.</p>
+      <p>Without a sufficiently large eyebox, even a small movement of the glasses could make the digital image disappear.</p>
+    </div>
+    <div class="article-section">
+      <span class="section-number">05</span>
+      <h2>Seeing Two Worlds at Once</h2>
+      <p>The final stage takes place at the eye.</p>
+      <p>The out-coupled image light enters the pupil and is focused by the eye's optical system onto the retina. At the same time, ambient light from the real environment passes through the transparent lens.</p>
+      <p>The visual system therefore receives two sources of light:</p>
+      <ul><li>Light from the physical environment.</li><li>Image-bearing light from the AR display.</li></ul>
+      <p>The result is an optical see-through experience in which digital information can appear overlaid on the user's surroundings.</p>
+      <p>The challenge is to balance image brightness, transparency, contrast, colour accuracy, and optical efficiency without making the glasses unnecessarily thick or heavy.</p>
+    </div>
+    <div class="article-section">
+      <span class="section-number">06</span>
+      <h2>Follow the Light: An Interactive Optical Journey</h2>
+      <p>Our animation illustrates the main stages of this process.</p>
+      <ol>
+        <li><strong>Light Generation</strong> — The light engine inside the glasses' temple produces image-bearing light. The animated source represents the beginning of the optical path.</li>
+        <li><strong>Optical Coupling</strong> — The light reaches the in-coupler near the lens and enters the waveguide. Its direction changes as it is coupled into the optical layer.</li>
+        <li><strong>Internal Reflection</strong> — The light travels through the waveguide by total internal reflection. The repeated changes in direction represent how the optical structure guides the light across the lens.</li>
+        <li><strong>Light Extraction</strong> — At the out-coupler, the guided light is redirected out of the lens and toward the eye.</li>
+        <li><strong>Image Perception</strong> — The eye receives the image-bearing light, allowing the user to perceive digital information while still seeing the surrounding physical environment.</li>
+      </ol>
+      <p class="article-note">The animation is a simplified educational representation. Real waveguide displays use carefully engineered optical structures, and their exact internal geometry varies between technologies.</p>
+    </div>
+    <div class="article-section">
+      <span class="section-number">07</span>
+      <h2>The Science Behind the Design</h2>
+      <p>Designing a waveguide display involves more than simply directing light toward an eye. Several optical parameters must work together.</p>
+      <div class="table-wrap"><table class="science-table">
+        <thead><tr><th>Optical concept</th><th>Why it matters</th></tr></thead>
+        <tbody>
+          <tr><td>Refractive index</td><td>Determines how light behaves when passing between materials</td></tr>
+          <tr><td>Critical angle</td><td>Defines the condition for total internal reflection</td></tr>
+          <tr><td>In-coupling efficiency</td><td>Determines how effectively light enters the waveguide</td></tr>
+          <tr><td>Out-coupling efficiency</td><td>Determines how effectively light reaches the viewing region</td></tr>
+          <tr><td>Eyebox</td><td>Defines the range of eye positions from which the image remains visible</td></tr>
+          <tr><td>Field of View (FoV)</td><td>Determines the angular extent of the displayed image</td></tr>
+          <tr><td>Optical uniformity</td><td>Helps maintain consistent brightness across the viewing region</td></tr>
+        </tbody>
+      </table></div>
+      <p>These parameters are interconnected. For example, increasing the size of the eyebox can introduce challenges in brightness uniformity and optical efficiency.</p>
+      <p>This is why waveguide design remains an active area of optical engineering research.</p>
+    </div>
+    <div class="article-section">
+      <span class="section-number">08</span>
+      <h2>Why Does This Technology Matter?</h2>
+      <p>Waveguide-based AR displays offer a way to integrate digital information into lightweight, glasses-like devices.</p>
+      <p>Instead of looking down at a phone or holding a separate screen, users can access selected information within their field of view.</p>
+      <p>However, making this technology practical requires solving several challenges: improving brightness in daylight, reducing power consumption, maintaining colour accuracy, expanding the eyebox, and preserving the transparency of the lens.</p>
+      <p>The future of smart glasses depends not only on making displays smaller, but also on controlling light with greater precision.</p>
+      <p class="closing-line">A digital image may begin inside the frame, but its journey ends in the eye.</p>
+    </div>
+    <section class="references">
+      <h2>Scientific References &amp; Further Reading</h2>
+      <ol>
+        <li>Ding et al. (2023). <em>Waveguide-based augmented reality displays: perspectives and challenges.</em> eLight, 3, 24. <a href="https://doi.org/10.1186/s43593-023-00057-z" target="_blank" rel="noopener">https://doi.org/10.1186/s43593-023-00057-z</a></li>
+        <li><em>Challenges and Advancements for AR Optical See-Through Near-Eye Displays: A Review.</em> Frontiers in Virtual Reality (2022). <a href="https://doi.org/10.3389/frvir.2022.838237" target="_blank" rel="noopener">https://doi.org/10.3389/frvir.2022.838237</a></li>
+        <li><em>Waveguide holography for 3D augmented reality glasses.</em> Nature Communications (2023). <a href="https://doi.org/10.1038/s41467-023-44032-1" target="_blank" rel="noopener">https://doi.org/10.1038/s41467-023-44032-1</a></li>
+        <li><em>Augmented reality and virtual reality displays: emerging technologies and future perspectives.</em> Light: Science &amp; Applications (2021). <a href="https://doi.org/10.1038/s41377-021-00658-8" target="_blank" rel="noopener">https://doi.org/10.1038/s41377-021-00658-8</a></li>
+      </ol>
+      <p class="article-note">Note: This article describes general principles of waveguide-based optical see-through AR displays. It does not claim to reproduce the proprietary architecture of a particular commercial smart-glasses product.</p>
+    </section>
+  </section>
+
+  <p class="note"><strong>Scientific note:</strong> This is an educational, simplified illustration, not a reconstruction of a particular commercial product's proprietary optical design. The moving line represents image light, not the digital message itself. Real waveguide displays use carefully engineered optical structures, and their exact internal geometry varies between technologies.</p>
+</main>
+<script>
+  const content = {
+    navigation: { icon: "↗", title: "Navigation", copy: "Turn right in 300 metres", short: "Turn right" },
+    message: { icon: "✉", title: "New message", copy: "Alex: Are we still meeting today?", short: "New message" },
+    weather: { icon: "☁", title: "Weather", copy: "14°C · Light rain", short: "14°C · Rain" }
+  };
+
+  let selected = "navigation";
+  let running = false;
+  const buttons = document.querySelectorAll(".choice");
+  const scene = document.getElementById("opticalScene");
+  const display = document.getElementById("display");
+  const placeholder = document.getElementById("placeholder");
+  const frontContent = document.getElementById("frontContent");
+  const startButton = document.getElementById("start");
+  const steps = [
+    ["Control command received", "The simulated wristband detects a selection gesture and sends a command to the glasses."],
+    ["Image is prepared", "The selected digital content is prepared by the display system. The content itself is not travelling through the lens."],
+    ["Image light travels", "Light carrying the image is guided through the waveguide and redirected toward the eye."],
+    ["Display becomes visible", "The user perceives the selected image in a small display area while still seeing the real world."]
+  ];
+
+  buttons.forEach(button => {
+    button.addEventListener("click", () => {
+      if (running) return;
+      selected = button.dataset.choice;
+      buttons.forEach(b => b.setAttribute("aria-pressed", String(b === button)));
+      const item = content[selected];
+      document.getElementById("displayIcon").textContent = item.icon;
+      document.getElementById("displayTitle").textContent = item.title;
+      document.getElementById("displayCopy").textContent = item.copy;
+      document.getElementById("frontIcon").textContent = item.icon;
+      document.getElementById("frontText").textContent = item.short;
+    });
+  });
+
+  function showStep(index) {
+    document.getElementById("stepName").textContent = steps[index][0];
+    document.getElementById("stepCount").textContent = `Step ${index + 1} / 4`;
+    document.getElementById("explanation").textContent = steps[index][1];
+    document.getElementById("progressBar").style.width = `${(index + 1) * 25}%`;
+    if (index >= 2) scene.classList.add("playing");
+    if (index === 3) {
+      display.classList.add("active");
+      placeholder.style.display = "none";
+      frontContent.setAttribute("opacity", "1");
+    }
+  }
+
+  startButton.addEventListener("click", () => {
+    if (running) return;
+    running = true;
+    startButton.disabled = true;
+    let index = 0;
+    showStep(index);
+    const timer = setInterval(() => {
+      index++;
+      if (index < steps.length) showStep(index);
+      else {
+        clearInterval(timer);
+        running = false;
+        startButton.disabled = false;
+        startButton.textContent = "Play again";
+      }
+    }, 1500);
+  });
+
+  const animationArea = document.getElementById("animationArea");
+  const fullscreenToggle = document.getElementById("fullscreenToggle");
+  const fullscreenLabel = document.getElementById("fullscreenLabel");
+  const fullscreenIcon = document.getElementById("fullscreenIcon");
+
+  async function toggleAnimationFullscreen() {
+    try {
+      if (document.fullscreenElement === animationArea) {
+        await document.exitFullscreen();
+      } else if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        await animationArea.requestFullscreen();
+      } else if (animationArea.requestFullscreen) {
+        await animationArea.requestFullscreen();
+      } else {
+        animationArea.classList.toggle("manual-fullscreen");
+      }
+    } catch (error) {
+      // Keep the control usable even if the browser blocks the Fullscreen API.
+      animationArea.classList.toggle("manual-fullscreen");
+    }
+  }
+
+  fullscreenToggle.addEventListener("click", toggleAnimationFullscreen);
+  document.addEventListener("fullscreenchange", () => {
+    const isFullscreen = document.fullscreenElement === animationArea;
+    fullscreenLabel.textContent = isFullscreen ? "Exit fullscreen" : "Fullscreen";
+    fullscreenIcon.textContent = isFullscreen ? "⤢" : "⛶";
+    fullscreenToggle.setAttribute("aria-label", isFullscreen ? "Exit fullscreen" : "Make animation fullscreen");
+    fullscreenToggle.title = isFullscreen ? "Exit fullscreen" : "Make animation fullscreen";
+  });
+
+  document.getElementById("reset").addEventListener("click", () => {
+    running = false;
+    scene.classList.remove("playing");
+    display.classList.remove("active");
+    placeholder.style.display = "block";
+    frontContent.setAttribute("opacity", "0");
+    document.getElementById("stepName").textContent = "Ready";
+    document.getElementById("stepCount").textContent = "Step 0 / 4";
+    document.getElementById("progressBar").style.width = "0%";
+    document.getElementById("explanation").textContent = "Choose an item and send the selection to begin.";
+    startButton.disabled = false;
+    startButton.textContent = "Send selection";
+  });
+</script>
+</body>
+</html>
